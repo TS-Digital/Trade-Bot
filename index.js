@@ -16,6 +16,7 @@ const { checkBTCSwing  } = require('./signals/btcSwing');
 const { checkBTCScalp  } = require('./signals/btcScalp');
 const { checkGoldSwing } = require('./signals/goldSwing');
 const { sendSignal     } = require('./utils/telegram');
+const { fetchTwelveDataCandles } = require('./utils/twelveData');
 
 // ── Exchange setup ────────────────────────────────────────────────────────────
 
@@ -24,15 +25,6 @@ const exchange = new ccxt.coinbase({
   secret:    config.coinbase.apiSecret,
   enableRateLimit: true,
 });
-
-// OANDA is used for XAU/USD (Gold) — optional, skipped if keys are absent
-const oandaExchange = config.oanda.apiKey && config.oanda.accountId
-  ? new ccxt.oanda({
-      apiKey:    config.oanda.apiKey,
-      accountId: config.oanda.accountId,
-      enableRateLimit: true,
-    })
-  : null;
 
 // ── Cooldown tracker ─────────────────────────────────────────────────────────
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
@@ -100,7 +92,9 @@ async function tick() {
   const [btc4h, btc5m, gold4h] = await Promise.all([
     fetchCandles('BTC/USD', '4h', 250),
     fetchCandles('BTC/USD', '5m', 100),
-    oandaExchange ? fetchCandles('XAU/USD', '4h', 250, oandaExchange) : Promise.resolve(null),
+    config.twelveData.apiKey
+      ? fetchTwelveDataCandles('XAU/USD', '4h', 250, config.twelveData.apiKey)
+      : Promise.resolve(null),
   ]);
 
   // ── BTC Swing (4H) ──────────────────────────────────────────────────────

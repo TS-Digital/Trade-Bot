@@ -15,9 +15,8 @@ module.exports = {
     apiKey: requireEnv('COINBASE_API_KEY'),
     apiSecret: requireEnv('COINBASE_API_SECRET'),
   },
-  oanda: {
-    apiKey:    optionalEnv('OANDA_API_KEY'),
-    accountId: optionalEnv('OANDA_ACCOUNT_ID'),
+  twelveData: {
+    apiKey: optionalEnv('TWELVE_DATA_API_KEY'),
   },
   telegram: {
     botToken: requireEnv('TELEGRAM_BOT_TOKEN'),

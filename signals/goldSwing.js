@@ -5,10 +5,8 @@
  *   Long:  close above resistance + volume spike + RSI < 70
  *   Short: close below support    + volume spike + RSI > 30
  *
- * Note: Coinbase does not offer XAU/USD natively. The bot will attempt
- * to fetch it; if the exchange raises an error the caller catches it and
- * skips gracefully. You can swap in a different CCXT exchange (e.g. OANDA
- * via a proxy) for Gold data.
+ * Candle data is sourced from the Twelve Data REST API (TWELVE_DATA_API_KEY).
+ * If the key is absent the Gold check is skipped gracefully.
  */
 
 const {
