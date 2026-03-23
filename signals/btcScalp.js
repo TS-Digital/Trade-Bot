@@ -19,7 +19,7 @@ const {
 } = require('../utils/indicators');
 
 const SYMBOL      = 'BTC/USD';
-const TIMEFRAME   = '5m';
+const TIMEFRAME   = '15m';
 // Stop: half the engulfing candle's range below/above entry
 const STOP_MULTIPLIER = 1.0;
 // Target: 2× risk
@@ -83,7 +83,7 @@ function checkBTCScalp(candles5m, candles4h) {
       symbol:    SYMBOL,
       direction: 'LONG',
       type:      'SCALP',
-      timeframe: '5M',
+      timeframe: '15M',
       entry,
       stop,
       target,
@@ -115,7 +115,7 @@ function checkBTCScalp(candles5m, candles4h) {
       symbol:    SYMBOL,
       direction: 'SHORT',
       type:      'SCALP',
-      timeframe: '5M',
+      timeframe: '15M',
       entry,
       stop,
       target,

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(node -e \"const ccxt = require\\(''ccxt''\\); console.log\\(ccxt.exchanges.filter\\(e => e.toLowerCase\\(\\).includes\\(''oanda''\\)\\)\\)\")",
+      "Bash(node -e \":*)"
     ]
   }
 }

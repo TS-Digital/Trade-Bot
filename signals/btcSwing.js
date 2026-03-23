@@ -16,7 +16,7 @@ const {
 } = require('../utils/indicators');
 
 const SYMBOL    = 'BTC/USD';
-const TIMEFRAME = '4h';
+const TIMEFRAME = '6h';
 const LOOKBACK  = 20; // candles for swing hi/lo detection
 
 /**
@@ -67,7 +67,7 @@ function checkBTCSwing(candles) {
       symbol:     SYMBOL,
       direction:  'LONG',
       type:       'SWING',
-      timeframe:  '4H',
+      timeframe:  '6H',
       entry,
       stop,
       target,
@@ -94,7 +94,7 @@ function checkBTCSwing(candles) {
       symbol:     SYMBOL,
       direction:  'SHORT',
       type:       'SWING',
-      timeframe:  '4H',
+      timeframe:  '6H',
       entry,
       stop,
       target,

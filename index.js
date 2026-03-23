@@ -26,13 +26,22 @@ const exchange = new ccxt.coinbase({
 });
 
 // OANDA is used for XAU/USD (Gold) — optional, skipped if keys are absent
-const oandaExchange = config.oanda.apiKey && config.oanda.accountId
+const oandaReady =
+  config.oanda.apiKey &&
+  config.oanda.accountId &&
+  typeof ccxt.oanda === 'function';
+
+const oandaExchange = oandaReady
   ? new ccxt.oanda({
       apiKey:    config.oanda.apiKey,
       accountId: config.oanda.accountId,
       enableRateLimit: true,
     })
   : null;
+
+if (!oandaExchange) {
+  console.warn('[Init] OANDA not configured — Gold/XAU/USD signals disabled');
+}
 
 // ── Cooldown tracker ─────────────────────────────────────────────────────────
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
@@ -97,27 +106,29 @@ async function tick() {
   console.log(`${'─'.repeat(60)}`);
 
   // Fetch all required OHLCV data in parallel
-  const [btc4h, btc5m, gold4h] = await Promise.all([
-    fetchCandles('BTC/USD', '4h', 250),
-    fetchCandles('BTC/USD', '5m', 100),
-    oandaExchange ? fetchCandles('XAU/USD', '4h', 250, oandaExchange) : Promise.resolve(null),
+  // Coinbase supports: '1m','5m','15m','30m','1h','2h','6h','1d'
+  // No 4H candle — using 6H (SIX_HOUR). No 5M — using 15M (FIFTEEN_MINUTE).
+  const [btc6h, btc15m, gold6h] = await Promise.all([
+    fetchCandles('BTC/USD', '6h', 250),
+    fetchCandles('BTC/USD', '15m', 100),
+    oandaExchange ? fetchCandles('XAU/USD', '6h', 250, oandaExchange) : Promise.resolve(null),
   ]);
 
-  // ── BTC Swing (4H) ──────────────────────────────────────────────────────
-  if (btc4h) {
-    const signal = checkBTCSwing(btc4h);
+  // ── BTC Swing (6H) ──────────────────────────────────────────────────────
+  if (btc6h) {
+    const signal = checkBTCSwing(btc6h);
     await processSignal(signal);
   }
 
-  // ── BTC Scalp (5M, filtered by 4H trend) ───────────────────────────────
-  if (btc5m && btc4h) {
-    const signal = checkBTCScalp(btc5m, btc4h);
+  // ── BTC Scalp (15M, filtered by 6H trend) ──────────────────────────────
+  if (btc15m && btc6h) {
+    const signal = checkBTCScalp(btc15m, btc6h);
     await processSignal(signal);
   }
 
-  // ── Gold Swing (4H) ─────────────────────────────────────────────────────
-  if (gold4h) {
-    const signal = checkGoldSwing(gold4h);
+  // ── Gold Swing (6H) ─────────────────────────────────────────────────────
+  if (gold6h) {
+    const signal = checkGoldSwing(gold6h);
     await processSignal(signal);
   }
 
