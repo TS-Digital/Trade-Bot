@@ -25,6 +25,15 @@ const exchange = new ccxt.coinbase({
   enableRateLimit: true,
 });
 
+// OANDA is used for XAU/USD (Gold) — optional, skipped if keys are absent
+const oandaExchange = config.oanda.apiKey && config.oanda.accountId
+  ? new ccxt.oanda({
+      apiKey:    config.oanda.apiKey,
+      accountId: config.oanda.accountId,
+      enableRateLimit: true,
+    })
+  : null;
+
 // ── Cooldown tracker ─────────────────────────────────────────────────────────
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
 const lastSignalTime = new Map();
@@ -42,9 +51,9 @@ function markSignalSent(signal) {
 
 // ── OHLCV fetching ────────────────────────────────────────────────────────────
 
-async function fetchCandles(symbol, timeframe, limit = 250) {
+async function fetchCandles(symbol, timeframe, limit = 250, exch = exchange) {
   try {
-    const candles = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit);
+    const candles = await exch.fetchOHLCV(symbol, timeframe, undefined, limit);
     if (!candles || candles.length === 0) {
       console.warn(`[Fetch] No data returned for ${symbol} ${timeframe}`);
       return null;
@@ -91,7 +100,7 @@ async function tick() {
   const [btc4h, btc5m, gold4h] = await Promise.all([
     fetchCandles('BTC/USD', '4h', 250),
     fetchCandles('BTC/USD', '5m', 100),
-    fetchCandles('XAU/USD', '4h', 250),
+    oandaExchange ? fetchCandles('XAU/USD', '4h', 250, oandaExchange) : Promise.resolve(null),
   ]);
 
   // ── BTC Swing (4H) ──────────────────────────────────────────────────────
