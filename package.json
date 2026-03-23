@@ -1,0 +1,20 @@
+{
+  "name": "crypto-trading-signal-bot",
+  "version": "1.0.0",
+  "description": "Crypto trading signal bot for BTC/USD and Gold/USD on Coinbase",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "ccxt": "^4.3.0",
+    "dotenv": "^16.4.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "technicalindicators": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
