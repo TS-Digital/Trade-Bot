@@ -106,4 +106,50 @@ function checkBTCSwing(candles) {
   return null;
 }
 
-module.exports = { checkBTCSwing, SYMBOL, TIMEFRAME };
+/**
+ * Brewing alert: conditions approaching a signal but not yet confirmed.
+ * Triggers when ANY of:
+ *   - RSI 65–70 (approaching overbought)
+ *   - RSI 30–35 (approaching oversold)
+ *   - Volume spike present but price hasn't broken resistance/support yet
+ */
+function checkBTCSwingBrewing(candles) {
+  if (!candles || candles.length < LOOKBACK + 10) return null;
+
+  const { highs, lows, closes, volumes } = parseOHLCV(candles);
+  const currentClose = closes[closes.length - 1];
+
+  const rsi        = calcRSI(closes, 14);
+  const volSpike   = hasVolumeSpike(volumes, LOOKBACK, 1.5);
+  const resistance = swingResistance(highs, LOOKBACK);
+  const support    = swingSupport(lows, LOOKBACK);
+  const trend      = trendDirection(closes);
+
+  if (rsi === null) return null;
+
+  const approachingOverbought = rsi >= 65 && rsi < 70;
+  const approachingOversold   = rsi > 30 && rsi <= 35;
+  const volNoBreakout         = volSpike &&
+    currentClose <= resistance &&
+    currentClose >= support;
+
+  if (!approachingOverbought && !approachingOversold && !volNoBreakout) return null;
+
+  return {
+    symbol:   SYMBOL,
+    type:     'BREWING',
+    subtype:  'SWING',
+    timeframe: '6H',
+    direction: trend,
+    price:    currentClose,
+    trend,
+    rsi,
+    volSpike,
+    engulfing: false,
+    rsiReason: approachingOverbought ? 'approaching overbought'
+             : approachingOversold   ? 'approaching oversold'
+             : null,
+  };
+}
+
+module.exports = { checkBTCSwing, checkBTCSwingBrewing, SYMBOL, TIMEFRAME };

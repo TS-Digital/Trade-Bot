@@ -69,7 +69,7 @@ function checkGoldSwing(candles) {
       symbol:    'Gold/USD',
       direction: 'LONG',
       type:      'SWING',
-      timeframe: '4H',
+      timeframe: '4H',  // Twelve Data supports 4H natively
       entry,
       stop,
       target,
@@ -96,7 +96,7 @@ function checkGoldSwing(candles) {
       symbol:    'Gold/USD',
       direction: 'SHORT',
       type:      'SWING',
-      timeframe: '4H',
+      timeframe: '4H',  // Twelve Data supports 4H natively
       entry,
       stop,
       target,

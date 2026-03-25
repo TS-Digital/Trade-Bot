@@ -75,4 +75,43 @@ async function sendSignal(signal) {
   }
 }
 
-module.exports = { sendSignal, formatMessage };
+function formatBrewingMessage(brewing) {
+  const { symbol, subtype, price, trend, rsi, volSpike, engulfing, rsiReason } = brewing;
+
+  const asset = symbol.split('/')[0];
+
+  const fmt = (n) =>
+    n >= 1000
+      ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+      : `$${n.toFixed(4)}`;
+
+  const rsiLine      = `RSI: ${rsi.toFixed(1)}${rsiReason ? ` (${rsiReason})` : ''}`;
+  const volLine      = `Vol Spike: ${volSpike ? 'YES ✅' : 'NO ❌'}`;
+  const engulfingLine = subtype === 'SCALP'
+    ? `\nEngulfing: ${engulfing ? 'Confirmed ✅' : 'Not confirmed yet'}`
+    : '';
+
+  return (
+    `⚠️ *${asset} SETUP BREWING*\n\n` +
+    `Price: ${fmt(price)}\n` +
+    `Trend: ${trend}\n` +
+    `${rsiLine}\n` +
+    `${volLine}` +
+    engulfingLine +
+    `\nWatching for confirmation...`
+  );
+}
+
+async function sendBrewingAlert(brewing) {
+  try {
+    const message = formatBrewingMessage(brewing);
+    await getBot().sendMessage(telegram.chatId, message, { parse_mode: 'Markdown' });
+    console.log(`[Telegram] Brewing alert sent: ${brewing.symbol} ${brewing.subtype}`);
+    return true;
+  } catch (err) {
+    console.error(`[Telegram] Failed to send brewing alert: ${err.message}`);
+    return false;
+  }
+}
+
+module.exports = { sendSignal, formatMessage, sendBrewingAlert, formatBrewingMessage };

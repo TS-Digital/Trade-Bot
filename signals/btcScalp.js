@@ -11,6 +11,7 @@
 const {
   parseOHLCV,
   calcRSI,
+  hasVolumeSpike,
   isBullishEngulfing,
   isBearishEngulfing,
   momentumEMA,
@@ -127,4 +128,45 @@ function checkBTCScalp(candles5m, candles4h) {
   return null;
 }
 
-module.exports = { checkBTCScalp, SYMBOL, TIMEFRAME };
+/**
+ * Brewing alert for scalp setups.
+ */
+function checkBTCScalpBrewing(candles5m, candles4h) {
+  if (!candles5m || candles5m.length < 10) return null;
+  if (!candles4h || candles4h.length < 50) return null;
+
+  const m5 = parseOHLCV(candles5m);
+  const h4 = parseOHLCV(candles4h);
+
+  const trend    = trendDirection(h4.closes);
+  const rsi      = calcRSI(m5.closes, 14);
+  const volSpike = hasVolumeSpike(m5.volumes, 20, 1.5);
+  const engulfing = isBullishEngulfing(m5.opens, m5.closes) ||
+                    isBearishEngulfing(m5.opens, m5.closes);
+
+  if (rsi === null) return null;
+
+  const approachingOverbought = rsi >= 65 && rsi < 70;
+  const approachingOversold   = rsi > 30 && rsi <= 35;
+  const volNoEngulfing        = volSpike && !engulfing;
+
+  if (!approachingOverbought && !approachingOversold && !volNoEngulfing) return null;
+
+  return {
+    symbol:    SYMBOL,
+    type:      'BREWING',
+    subtype:   'SCALP',
+    timeframe: '15M',
+    direction: trend,
+    price:     m5.closes[m5.closes.length - 1],
+    trend,
+    rsi,
+    volSpike,
+    engulfing,
+    rsiReason: approachingOverbought ? 'approaching overbought'
+             : approachingOversold   ? 'approaching oversold'
+             : null,
+  };
+}
+
+module.exports = { checkBTCScalp, checkBTCScalpBrewing, SYMBOL, TIMEFRAME };

@@ -12,10 +12,11 @@ require('dotenv').config();
 const ccxt   = require('ccxt');
 const config = require('./config');
 
-const { checkBTCSwing  } = require('./signals/btcSwing');
-const { checkBTCScalp  } = require('./signals/btcScalp');
-const { checkGoldSwing } = require('./signals/goldSwing');
-const { sendSignal     } = require('./utils/telegram');
+const { checkBTCSwing, checkBTCSwingBrewing   } = require('./signals/btcSwing');
+const { checkBTCScalp, checkBTCScalpBrewing   } = require('./signals/btcScalp');
+const { checkGoldSwing                         } = require('./signals/goldSwing');
+const { sendSignal, sendBrewingAlert           } = require('./utils/telegram');
+const { fetchTwelveDataCandles                 } = require('./utils/twelveData');
 
 // ── Exchange setup ────────────────────────────────────────────────────────────
 
@@ -25,23 +26,6 @@ const exchange = new ccxt.coinbase({
   enableRateLimit: true,
 });
 
-// OANDA is used for XAU/USD (Gold) — optional, skipped if keys are absent
-const oandaReady =
-  config.oanda.apiKey &&
-  config.oanda.accountId &&
-  typeof ccxt.oanda === 'function';
-
-const oandaExchange = oandaReady
-  ? new ccxt.oanda({
-      apiKey:    config.oanda.apiKey,
-      accountId: config.oanda.accountId,
-      enableRateLimit: true,
-    })
-  : null;
-
-if (!oandaExchange) {
-  console.warn('[Init] OANDA not configured — Gold/XAU/USD signals disabled');
-}
 
 // ── Cooldown tracker ─────────────────────────────────────────────────────────
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
@@ -77,6 +61,27 @@ async function fetchCandles(symbol, timeframe, limit = 250, exch = exchange) {
 
 // ── Signal processing ─────────────────────────────────────────────────────────
 
+// Brewing alerts reuse the same cooldown map — key uses 'BREWING' as direction.
+function brewingCooldownKey(brewing) {
+  return `${brewing.symbol}:BREWING:${brewing.subtype}`;
+}
+
+async function processBrewingAlert(brewing) {
+  if (!brewing) return;
+
+  const key  = brewingCooldownKey(brewing);
+  const last = lastSignalTime.get(key) || 0;
+  if (Date.now() - last < config.signalCooldownMs) {
+    console.log(`[Cooldown] Skipping brewing alert ${brewing.symbol} ${brewing.subtype} — cooldown active`);
+    return;
+  }
+
+  console.log(`[Brewing] ${brewing.symbol} ${brewing.subtype} | RSI: ${brewing.rsi.toFixed(1)} | Vol: ${brewing.volSpike}`);
+
+  const sent = await sendBrewingAlert(brewing);
+  if (sent) lastSignalTime.set(key, Date.now());
+}
+
 async function processSignal(signal) {
   if (!signal) return;
 
@@ -107,32 +112,54 @@ async function tick() {
 
   // Fetch all required OHLCV data in parallel
   // Coinbase supports: '1m','5m','15m','30m','1h','2h','6h','1d'
-  // No 4H candle — using 6H (SIX_HOUR). No 5M — using 15M (FIFTEEN_MINUTE).
-  const [btc6h, btc15m, gold6h] = await Promise.all([
+  // No 4H candle on Coinbase — using 6H. Gold uses Twelve Data which supports 4H natively.
+  const [btc6h, btc15m, gold4h] = await Promise.all([
     fetchCandles('BTC/USD', '6h', 250),
     fetchCandles('BTC/USD', '15m', 100),
-    oandaExchange ? fetchCandles('XAU/USD', '6h', 250, oandaExchange) : Promise.resolve(null),
+    fetchTwelveDataCandles('XAU/USD', '4h', 250),
   ]);
 
   // ── BTC Swing (6H) ──────────────────────────────────────────────────────
   if (btc6h) {
-    const signal = checkBTCSwing(btc6h);
-    await processSignal(signal);
+    await processSignal(checkBTCSwing(btc6h));
+    await processBrewingAlert(checkBTCSwingBrewing(btc6h));
   }
 
   // ── BTC Scalp (15M, filtered by 6H trend) ──────────────────────────────
   if (btc15m && btc6h) {
-    const signal = checkBTCScalp(btc15m, btc6h);
-    await processSignal(signal);
+    await processSignal(checkBTCScalp(btc15m, btc6h));
+    await processBrewingAlert(checkBTCScalpBrewing(btc15m, btc6h));
   }
 
-  // ── Gold Swing (6H) ─────────────────────────────────────────────────────
-  if (gold6h) {
-    const signal = checkGoldSwing(gold6h);
+  // ── Gold Swing (4H via Twelve Data) ─────────────────────────────────────
+  if (gold4h) {
+    const signal = checkGoldSwing(gold4h);
     await processSignal(signal);
   }
 
   console.log(`[Tick] Done. Next check in ${config.pollIntervalMs / 1000}s`);
+}
+
+// ── Telegram connectivity test ────────────────────────────────────────────────
+
+async function sendTestMessage() {
+  const sample = {
+    symbol:     'BTC/USD',
+    direction:  'LONG',
+    type:       'SWING',
+    timeframe:  '6H',
+    entry:      83200,
+    stop:       81500,
+    target:     87000,
+    confidence: 74,
+    reason:     'TEST — bot started successfully',
+  };
+  const sent = await sendSignal(sample);
+  if (sent) {
+    console.log('[Init] Telegram test message sent ✓');
+  } else {
+    console.error('[Init] Telegram test message failed — check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID');
+  }
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -150,6 +177,8 @@ async function main() {
     console.error(`[Init] Exchange connection failed: ${err.message}`);
     console.error('[Init] Continuing anyway — individual fetches will handle errors gracefully');
   }
+
+  await sendTestMessage();
 
   // Run immediately, then on interval
   await tick();
