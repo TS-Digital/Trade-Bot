@@ -12,11 +12,15 @@ require('dotenv').config();
 const ccxt   = require('ccxt');
 const config = require('./config');
 
-const { checkBTCSwing, checkBTCSwingBrewing   } = require('./signals/btcSwing');
-const { checkBTCScalp, checkBTCScalpBrewing   } = require('./signals/btcScalp');
-const { checkGoldSwing                         } = require('./signals/goldSwing');
-const { sendSignal, sendBrewingAlert           } = require('./utils/telegram');
-const { fetchTwelveDataCandles                 } = require('./utils/twelveData');
+const { checkBTCSwing,    checkBTCSwingBrewing    } = require('./signals/btcSwing');
+const { checkBTCScalp,    checkBTCScalpBrewing    } = require('./signals/btcScalp');
+const { checkETHSwing,    checkETHSwingBrewing    } = require('./signals/ethSwing');
+const { checkETHScalp,    checkETHScalpBrewing    } = require('./signals/ethScalp');
+const { checkGoldSwing                            } = require('./signals/goldSwing');
+const { checkGBPSwing,    checkGBPSwingBrewing    } = require('./signals/gbpSwing');
+const { checkGBPJPYSwing, checkGBPJPYSwingBrewing } = require('./signals/gbpjpySwing');
+const { sendSignal, sendBrewingAlert              } = require('./utils/telegram');
+const { fetchTwelveDataCandles                    } = require('./utils/twelveData');
 
 // ── Exchange setup ────────────────────────────────────────────────────────────
 
@@ -110,12 +114,16 @@ async function tick() {
   console.log(`${'─'.repeat(60)}`);
 
   // Fetch all required OHLCV data in parallel
-  // Coinbase supports: '1m','5m','15m','30m','1h','2h','6h','1d'
-  // No 4H candle on Coinbase — using 6H. Gold uses Twelve Data which supports 4H natively.
-  const [btc6h, btc15m, gold4h] = await Promise.all([
+  // Coinbase: no 4H — using 6H. No native 5M scalp — using 15M.
+  // Forex/metals: Twelve Data supports 4H natively.
+  const [btc6h, btc15m, eth6h, eth15m, gold4h, gbp4h, gbpjpy4h] = await Promise.all([
     fetchCandles('BTC/USD', '6h', 250),
     fetchCandles('BTC/USD', '15m', 100),
+    fetchCandles('ETH/USD', '6h', 250),
+    fetchCandles('ETH/USD', '15m', 100),
     fetchTwelveDataCandles('XAU/USD', '4h', 250),
+    fetchTwelveDataCandles('GBP/USD', '4h', 250),
+    fetchTwelveDataCandles('GBP/JPY', '4h', 250),
   ]);
 
   // ── BTC Swing (6H) ──────────────────────────────────────────────────────
@@ -130,10 +138,33 @@ async function tick() {
     await processBrewingAlert(checkBTCScalpBrewing(btc15m, btc6h));
   }
 
+  // ── ETH Swing (6H) ──────────────────────────────────────────────────────
+  if (eth6h) {
+    await processSignal(checkETHSwing(eth6h));
+    await processBrewingAlert(checkETHSwingBrewing(eth6h));
+  }
+
+  // ── ETH Scalp (15M, filtered by 6H trend) ──────────────────────────────
+  if (eth15m && eth6h) {
+    await processSignal(checkETHScalp(eth15m, eth6h));
+    await processBrewingAlert(checkETHScalpBrewing(eth15m, eth6h));
+  }
+
   // ── Gold Swing (4H via Twelve Data) ─────────────────────────────────────
   if (gold4h) {
-    const signal = checkGoldSwing(gold4h);
-    await processSignal(signal);
+    await processSignal(checkGoldSwing(gold4h));
+  }
+
+  // ── GBP/USD Swing (4H via Twelve Data — Mon–Fri 07:00–22:00 UTC) ────────
+  if (gbp4h) {
+    await processSignal(checkGBPSwing(gbp4h));
+    await processBrewingAlert(checkGBPSwingBrewing(gbp4h));
+  }
+
+  // ── GBP/JPY Swing (4H via Twelve Data — Mon–Fri 07:00–22:00 UTC) ────────
+  if (gbpjpy4h) {
+    await processSignal(checkGBPJPYSwing(gbpjpy4h));
+    await processBrewingAlert(checkGBPJPYSwingBrewing(gbpjpy4h));
   }
 
   console.log(`[Tick] Done. Next check in ${config.pollIntervalMs / 1000}s`);
