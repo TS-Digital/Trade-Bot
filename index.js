@@ -142,7 +142,8 @@ async function tick() {
 // ── Telegram connectivity test ────────────────────────────────────────────────
 
 async function sendTestMessage() {
-  const sample = {
+  // BTC test — static sample
+  const btcSample = {
     symbol:     'BTC/USD',
     direction:  'LONG',
     type:       'SWING',
@@ -153,11 +154,36 @@ async function sendTestMessage() {
     confidence: 74,
     reason:     'TEST — bot started successfully',
   };
-  const sent = await sendSignal(sample);
-  if (sent) {
-    console.log('[Init] Telegram test message sent ✓');
+  const btcSent = await sendSignal(btcSample);
+  if (btcSent) {
+    console.log('[Init] BTC Telegram test message sent ✓');
   } else {
     console.error('[Init] Telegram test message failed — check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID');
+  }
+
+  // Gold test — fetch live price from Twelve Data
+  const goldCandles = await fetchTwelveDataCandles('XAU/USD', '4h', 5);
+  if (goldCandles && goldCandles.length > 0) {
+    const price  = goldCandles[goldCandles.length - 1][4]; // last close
+    const stop   = parseFloat((price * 0.995).toFixed(2)); // -0.5%
+    const target = parseFloat((price * 1.010).toFixed(2)); // +1.0%
+    const goldSample = {
+      symbol:     'Gold/USD',
+      direction:  'LONG',
+      type:       'SWING',
+      timeframe:  '4H',
+      entry:      price,
+      stop,
+      target,
+      confidence: 74,
+      reason:     'TEST — Gold data feed connected',
+    };
+    const goldSent = await sendSignal(goldSample);
+    if (goldSent) {
+      console.log(`[Init] Gold Telegram test message sent ✓ (price: $${price})`);
+    }
+  } else {
+    console.warn('[Init] Gold test skipped — Twelve Data fetch failed (check TWELVE_DATA_API_KEY)');
   }
 }
 

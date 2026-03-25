@@ -59,14 +59,21 @@ function formatMessage(signal) {
   );
 }
 
+/** Chat IDs to broadcast to — always includes primary, optionally includes second. */
+function chatIds() {
+  return [telegram.chatId, telegram.chatId2].filter(Boolean);
+}
+
 /**
- * Send a signal message to the configured Telegram chat.
- * Returns true on success, false on failure.
+ * Send a signal message to all configured Telegram chats.
+ * Returns true if the primary send succeeded.
  */
 async function sendSignal(signal) {
   try {
     const message = formatMessage(signal);
-    await getBot().sendMessage(telegram.chatId, message, { parse_mode: 'Markdown' });
+    await Promise.all(
+      chatIds().map((id) => getBot().sendMessage(id, message, { parse_mode: 'Markdown' }))
+    );
     console.log(`[Telegram] Signal sent: ${signal.symbol} ${signal.direction} ${signal.type}`);
     return true;
   } catch (err) {
@@ -105,7 +112,9 @@ function formatBrewingMessage(brewing) {
 async function sendBrewingAlert(brewing) {
   try {
     const message = formatBrewingMessage(brewing);
-    await getBot().sendMessage(telegram.chatId, message, { parse_mode: 'Markdown' });
+    await Promise.all(
+      chatIds().map((id) => getBot().sendMessage(id, message, { parse_mode: 'Markdown' }))
+    );
     console.log(`[Telegram] Brewing alert sent: ${brewing.symbol} ${brewing.subtype}`);
     return true;
   } catch (err) {

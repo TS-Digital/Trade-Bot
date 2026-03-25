@@ -20,7 +20,8 @@ module.exports = {
   },
   telegram: {
     botToken: requireEnv('TELEGRAM_BOT_TOKEN'),
-    chatId: requireEnv('TELEGRAM_CHAT_ID'),
+    chatId:   requireEnv('TELEGRAM_CHAT_ID'),
+    chatId2:  optionalEnv('TELEGRAM_CHAT_ID_2'),
   },
   // How often the main loop runs (ms)
   pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || '300000', 10),
