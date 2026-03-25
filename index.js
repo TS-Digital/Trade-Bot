@@ -26,7 +26,6 @@ const exchange = new ccxt.coinbase({
   enableRateLimit: true,
 });
 
-
 // ── Cooldown tracker ─────────────────────────────────────────────────────────
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
 const lastSignalTime = new Map();
