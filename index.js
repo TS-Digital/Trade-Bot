@@ -16,9 +16,19 @@ const { checkBTCSwing,    checkBTCSwingBrewing    } = require('./signals/btcSwin
 const { checkBTCScalp,    checkBTCScalpBrewing    } = require('./signals/btcScalp');
 const { checkETHSwing,    checkETHSwingBrewing    } = require('./signals/ethSwing');
 const { checkETHScalp,    checkETHScalpBrewing    } = require('./signals/ethScalp');
+const { checkBTCGBPSwing, checkBTCGBPSwingBrewing } = require('./signals/btcGbpSwing');
+const { checkBTCGBPScalp, checkBTCGBPScalpBrewing } = require('./signals/btcGbpScalp');
+const { checkSOLSwing,    checkSOLSwingBrewing    } = require('./signals/solSwing');
+const { checkSOLScalp,    checkSOLScalpBrewing    } = require('./signals/solScalp');
+const { checkXRPSwing,    checkXRPSwingBrewing    } = require('./signals/xrpSwing');
+const { checkXRPScalp,    checkXRPScalpBrewing    } = require('./signals/xrpScalp');
 const { checkGoldSwing                            } = require('./signals/goldSwing');
 const { checkGBPSwing,    checkGBPSwingBrewing    } = require('./signals/gbpSwing');
 const { checkGBPJPYSwing, checkGBPJPYSwingBrewing } = require('./signals/gbpjpySwing');
+const { checkEURUSDSwing, checkEURUSDSwingBrewing } = require('./signals/eurUsdSwing');
+const { checkUSDJPYSwing, checkUSDJPYSwingBrewing } = require('./signals/usdJpySwing');
+const { checkEURGBPSwing, checkEURGBPSwingBrewing } = require('./signals/eurGbpSwing');
+const { checkAUDUSDSwing, checkAUDUSDSwingBrewing } = require('./signals/audUsdSwing');
 const { sendSignal, sendBrewingAlert              } = require('./utils/telegram');
 const { fetchTwelveDataCandles                    } = require('./utils/twelveData');
 
@@ -114,57 +124,116 @@ async function tick() {
   console.log(`${'─'.repeat(60)}`);
 
   // Fetch all required OHLCV data in parallel
-  // Coinbase: no 4H — using 6H. No native 5M scalp — using 15M.
-  // Forex/metals: Twelve Data supports 4H natively.
-  const [btc6h, btc15m, eth6h, eth15m, gold4h, gbp4h, gbpjpy4h] = await Promise.all([
+  // Coinbase: no 4H — using 6H for swing, 15M for scalp.
+  // Twelve Data: supports 4H natively for metals and forex.
+  const [
+    btc6h,    btc15m,
+    eth6h,    eth15m,
+    btcgbp6h, btcgbp15m,
+    sol6h,    sol15m,
+    xrp6h,    xrp15m,
+    gold4h,
+    gbp4h,    gbpjpy4h,
+    eurusd4h, usdjpy4h, eurgbp4h, audusd4h,
+  ] = await Promise.all([
     fetchCandles('BTC/USD', '6h', 250),
     fetchCandles('BTC/USD', '15m', 100),
     fetchCandles('ETH/USD', '6h', 250),
     fetchCandles('ETH/USD', '15m', 100),
+    fetchCandles('BTC/GBP', '6h', 250),
+    fetchCandles('BTC/GBP', '15m', 100),
+    fetchCandles('SOL/USD', '6h', 250),
+    fetchCandles('SOL/USD', '15m', 100),
+    fetchCandles('XRP/USD', '6h', 250),
+    fetchCandles('XRP/USD', '15m', 100),
     fetchTwelveDataCandles('XAU/USD', '4h', 250),
     fetchTwelveDataCandles('GBP/USD', '4h', 250),
     fetchTwelveDataCandles('GBP/JPY', '4h', 250),
+    fetchTwelveDataCandles('EUR/USD', '4h', 250),
+    fetchTwelveDataCandles('USD/JPY', '4h', 250),
+    fetchTwelveDataCandles('EUR/GBP', '4h', 250),
+    fetchTwelveDataCandles('AUD/USD', '4h', 250),
   ]);
 
-  // ── BTC Swing (6H) ──────────────────────────────────────────────────────
+  // ── BTC/USD ─────────────────────────────────────────────────────────────
   if (btc6h) {
     await processSignal(checkBTCSwing(btc6h));
     await processBrewingAlert(checkBTCSwingBrewing(btc6h));
   }
-
-  // ── BTC Scalp (15M, filtered by 6H trend) ──────────────────────────────
   if (btc15m && btc6h) {
     await processSignal(checkBTCScalp(btc15m, btc6h));
     await processBrewingAlert(checkBTCScalpBrewing(btc15m, btc6h));
   }
 
-  // ── ETH Swing (6H) ──────────────────────────────────────────────────────
+  // ── ETH/USD ─────────────────────────────────────────────────────────────
   if (eth6h) {
     await processSignal(checkETHSwing(eth6h));
     await processBrewingAlert(checkETHSwingBrewing(eth6h));
   }
-
-  // ── ETH Scalp (15M, filtered by 6H trend) ──────────────────────────────
   if (eth15m && eth6h) {
     await processSignal(checkETHScalp(eth15m, eth6h));
     await processBrewingAlert(checkETHScalpBrewing(eth15m, eth6h));
   }
 
-  // ── Gold Swing (4H via Twelve Data) ─────────────────────────────────────
+  // ── BTC/GBP ─────────────────────────────────────────────────────────────
+  if (btcgbp6h) {
+    await processSignal(checkBTCGBPSwing(btcgbp6h));
+    await processBrewingAlert(checkBTCGBPSwingBrewing(btcgbp6h));
+  }
+  if (btcgbp15m && btcgbp6h) {
+    await processSignal(checkBTCGBPScalp(btcgbp15m, btcgbp6h));
+    await processBrewingAlert(checkBTCGBPScalpBrewing(btcgbp15m, btcgbp6h));
+  }
+
+  // ── SOL/USD ─────────────────────────────────────────────────────────────
+  if (sol6h) {
+    await processSignal(checkSOLSwing(sol6h));
+    await processBrewingAlert(checkSOLSwingBrewing(sol6h));
+  }
+  if (sol15m && sol6h) {
+    await processSignal(checkSOLScalp(sol15m, sol6h));
+    await processBrewingAlert(checkSOLScalpBrewing(sol15m, sol6h));
+  }
+
+  // ── XRP/USD ─────────────────────────────────────────────────────────────
+  if (xrp6h) {
+    await processSignal(checkXRPSwing(xrp6h));
+    await processBrewingAlert(checkXRPSwingBrewing(xrp6h));
+  }
+  if (xrp15m && xrp6h) {
+    await processSignal(checkXRPScalp(xrp15m, xrp6h));
+    await processBrewingAlert(checkXRPScalpBrewing(xrp15m, xrp6h));
+  }
+
+  // ── Gold/XAU/USD (Twelve Data) ───────────────────────────────────────────
   if (gold4h) {
     await processSignal(checkGoldSwing(gold4h));
   }
 
-  // ── GBP/USD Swing (4H via Twelve Data — Mon–Fri 07:00–22:00 UTC) ────────
+  // ── Forex pairs (Twelve Data — Mon–Fri 07:00–22:00 UTC) ─────────────────
   if (gbp4h) {
     await processSignal(checkGBPSwing(gbp4h));
     await processBrewingAlert(checkGBPSwingBrewing(gbp4h));
   }
-
-  // ── GBP/JPY Swing (4H via Twelve Data — Mon–Fri 07:00–22:00 UTC) ────────
   if (gbpjpy4h) {
     await processSignal(checkGBPJPYSwing(gbpjpy4h));
     await processBrewingAlert(checkGBPJPYSwingBrewing(gbpjpy4h));
+  }
+  if (eurusd4h) {
+    await processSignal(checkEURUSDSwing(eurusd4h));
+    await processBrewingAlert(checkEURUSDSwingBrewing(eurusd4h));
+  }
+  if (usdjpy4h) {
+    await processSignal(checkUSDJPYSwing(usdjpy4h));
+    await processBrewingAlert(checkUSDJPYSwingBrewing(usdjpy4h));
+  }
+  if (eurgbp4h) {
+    await processSignal(checkEURGBPSwing(eurgbp4h));
+    await processBrewingAlert(checkEURGBPSwingBrewing(eurgbp4h));
+  }
+  if (audusd4h) {
+    await processSignal(checkAUDUSDSwing(audusd4h));
+    await processBrewingAlert(checkAUDUSDSwingBrewing(audusd4h));
   }
 
   console.log(`[Tick] Done. Next check in ${config.pollIntervalMs / 1000}s`);
