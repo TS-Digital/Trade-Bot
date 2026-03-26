@@ -29,8 +29,9 @@ const { checkEURUSDSwing, checkEURUSDSwingBrewing } = require('./signals/eurUsdS
 const { checkUSDJPYSwing, checkUSDJPYSwingBrewing } = require('./signals/usdJpySwing');
 const { checkEURGBPSwing, checkEURGBPSwingBrewing } = require('./signals/eurGbpSwing');
 const { checkAUDUSDSwing, checkAUDUSDSwingBrewing } = require('./signals/audUsdSwing');
-const { sendSignal, sendBrewingAlert              } = require('./utils/telegram');
-const { fetchTwelveDataCandles                    } = require('./utils/twelveData');
+const { sendSignal, sendBrewingAlert, sendForexOpen, sendForexClose } = require('./utils/telegram');
+const { fetchTwelveDataCandles } = require('./utils/twelveData');
+const { isForexOpen            } = require('./utils/marketHours');
 
 // ── Exchange setup ────────────────────────────────────────────────────────────
 
@@ -53,6 +54,21 @@ function isCoolingDown(signal) {
 function markSignalSent(signal) {
   const key = `${signal.symbol}:${signal.direction}:${signal.type}`;
   lastSignalTime.set(key, Date.now());
+}
+
+// ── Forex market open/close notifications ────────────────────────────────────
+// null = first tick (no notification sent yet), true/false = last known state
+let forexWasOpen = null;
+
+async function checkForexTransition() {
+  const nowOpen = isForexOpen();
+  if (forexWasOpen === null) {
+    forexWasOpen = nowOpen; // record state on first tick without alerting
+    return;
+  }
+  if (!forexWasOpen && nowOpen)  { await sendForexOpen();  }
+  if (forexWasOpen  && !nowOpen) { await sendForexClose(); }
+  forexWasOpen = nowOpen;
 }
 
 // ── OHLCV fetching ────────────────────────────────────────────────────────────
@@ -122,6 +138,8 @@ async function tick() {
   console.log(`\n${'─'.repeat(60)}`);
   console.log(`[Tick] ${now}`);
   console.log(`${'─'.repeat(60)}`);
+
+  await checkForexTransition();
 
   // Fetch all required OHLCV data in parallel
   // Coinbase: no 4H — using 6H for swing, 15M for scalp.

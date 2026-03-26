@@ -123,4 +123,35 @@ async function sendBrewingAlert(brewing) {
   }
 }
 
-module.exports = { sendSignal, formatMessage, sendBrewingAlert, formatBrewingMessage };
+async function sendForexOpen() {
+  const message =
+    `📈 *Forex Market Now OPEN*\n\n` +
+    `Scanning: GBP/USD, EUR/USD, USD/JPY, GBP/JPY, EUR/GBP, AUD/USD, Gold\n` +
+    `Crypto: BTC, ETH, SOL, XRP scanning 24/7\n` +
+    `Good luck today! 🔥`;
+  try {
+    await Promise.all(
+      chatIds().map((id) => getBot().sendMessage(id, message, { parse_mode: 'Markdown' }))
+    );
+    console.log('[Telegram] Forex market OPEN notification sent');
+  } catch (err) {
+    console.error(`[Telegram] Failed to send forex open message: ${err.message}`);
+  }
+}
+
+async function sendForexClose() {
+  const message =
+    `📉 *Forex Market Now CLOSED*\n\n` +
+    `Forex signals paused until tomorrow 7am UTC\n` +
+    `Crypto: BTC, ETH, SOL, XRP still scanning 24/7 ✅`;
+  try {
+    await Promise.all(
+      chatIds().map((id) => getBot().sendMessage(id, message, { parse_mode: 'Markdown' }))
+    );
+    console.log('[Telegram] Forex market CLOSED notification sent');
+  } catch (err) {
+    console.error(`[Telegram] Failed to send forex close message: ${err.message}`);
+  }
+}
+
+module.exports = { sendSignal, formatMessage, sendBrewingAlert, formatBrewingMessage, sendForexOpen, sendForexClose };
