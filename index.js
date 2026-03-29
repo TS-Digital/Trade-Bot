@@ -32,6 +32,7 @@ const { checkAUDUSDSwing, checkAUDUSDSwingBrewing } = require('./signals/audUsdS
 const { sendSignal, sendBrewingAlert, sendForexOpen, sendForexClose } = require('./utils/telegram');
 const { fetchTwelveDataCandles } = require('./utils/twelveData');
 const { isForexOpen            } = require('./utils/marketHours');
+const { executePaperTrade      } = require('./utils/bybit');
 
 // ── Exchange setup ────────────────────────────────────────────────────────────
 
@@ -45,10 +46,14 @@ const exchange = new ccxt.coinbase({
 // key: `${symbol}:${direction}:${type}` → last signal timestamp (ms)
 const lastSignalTime = new Map();
 
+function cooldownMs(type) {
+  return type === 'SCALP' ? config.scalpCooldownMs : config.swingCooldownMs;
+}
+
 function isCoolingDown(signal) {
   const key = `${signal.symbol}:${signal.direction}:${signal.type}`;
   const last = lastSignalTime.get(key) || 0;
-  return Date.now() - last < config.signalCooldownMs;
+  return Date.now() - last < cooldownMs(signal.type);
 }
 
 function markSignalSent(signal) {
@@ -100,7 +105,7 @@ async function processBrewingAlert(brewing) {
 
   const key  = brewingCooldownKey(brewing);
   const last = lastSignalTime.get(key) || 0;
-  if (Date.now() - last < config.signalCooldownMs) {
+  if (Date.now() - last < config.swingCooldownMs) {
     console.log(`[Cooldown] Skipping brewing alert ${brewing.symbol} ${brewing.subtype} — cooldown active`);
     return;
   }
@@ -128,7 +133,14 @@ async function processSignal(signal) {
   );
 
   const sent = await sendSignal(signal);
-  if (sent) markSignalSent(signal);
+  if (sent) {
+    markSignalSent(signal);
+    if (config.bybit.apiKey && config.bybit.apiSecret) {
+      await executePaperTrade(signal, config.bybit.apiKey, config.bybit.apiSecret, config.bybit.tradeSizeUsdt);
+    } else {
+      console.log('[Bybit] SKIP — BYBIT_TESTNET_API_KEY / BYBIT_TESTNET_API_SECRET not set');
+    }
+  }
 }
 
 // ── Main tick ─────────────────────────────────────────────────────────────────
@@ -309,8 +321,10 @@ async function sendTestMessage() {
 
 async function main() {
   console.log('🤖 Crypto Signal Bot starting…');
-  console.log(`   Poll interval : ${config.pollIntervalMs / 1000}s`);
-  console.log(`   Signal cooldown: ${config.signalCooldownMs / 3600000}h`);
+  console.log(`   Poll interval  : ${config.pollIntervalMs / 1000}s`);
+  console.log(`   Swing cooldown : ${config.swingCooldownMs / 3600000}h`);
+  console.log(`   Scalp cooldown : ${config.scalpCooldownMs / 3600000}h`);
+  console.log(`   Bybit testnet  : ${config.bybit.apiKey ? `enabled (${config.bybit.tradeSizeUsdt} USDT/trade)` : 'disabled (no API key)'}`);
 
   // Validate exchange connectivity before entering the loop
   try {
